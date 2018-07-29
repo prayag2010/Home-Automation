@@ -77,6 +77,9 @@
 #include "ac_remote_raw_data.h"
 
 #define IR_LED D8
+#define allOffMillis 300 // < 300
+#define ligOnMillis 1000 // actually 300-1000
+#define fanOnMillis 1500 // > 1500
 
 SoftwareSerial swSer(D1, D2, false, 256);
 
@@ -121,6 +124,9 @@ boolean curButState = false;
 
 boolean light0state = false;
 boolean fan0state = false;
+
+unsigned long risingMillis = 0;
+unsigned long fallingMillis = 0;
 
 
 void setup() {
@@ -178,21 +184,70 @@ void loop() {
   curButState = digitalRead(offButton);
 
   if (!prevButState && curButState) {
+    risingMillis = millis();
     Serial.println("Rising Edge detected");
-    Serial.println("All devices turned off");
-    delay(250);
-    fan0state = false;
-    light0state = false;
-    digitalWrite(light0, HIGH);
-    digitalWrite(fan0, HIGH);
-    client.publish(light0StateTopic.c_str(), "F");
-    client.publish(fan0StateTopic.c_str(), "F");
-
-    //EDIT
-    client.publish(light1CommTopic.c_str(), "F");
-    client.publish(light2CommTopic.c_str(), "F");
-    client.publish(fan1CommTopic.c_str(), "F");
   }
+  if (prevButState && !curButState) {
+    fallingMillis = millis();
+    Serial.println("Falling Edge detected");
+    Serial.println("Time Diff:");
+    Serial.println(fallingMillis - risingMillis);
+
+    if (fallingMillis - risingMillis <= allOffMillis) {
+      Serial.println("All Off via button");
+      Serial.println("Rising Edge detected");
+
+      fan0state = false;
+      light0state = false;
+      digitalWrite(light0, HIGH);
+      digitalWrite(fan0, HIGH);
+      client.publish(light0StateTopic.c_str(), "F");
+      client.publish(fan0StateTopic.c_str(), "F");
+
+      //EDIT
+      client.publish(light1CommTopic.c_str(), "F");
+      client.publish(light2CommTopic.c_str(), "F");
+      client.publish(fan1CommTopic.c_str(), "F");
+    }
+    else if (fallingMillis - risingMillis > allOffMillis && fallingMillis - risingMillis <= fanOnMillis) {
+      Serial.println("Lights On via button");
+
+      light0state = true;
+      digitalWrite(light0, LOW);
+      client.publish(light0StateTopic.c_str(), "O");
+
+      //EDIT
+      client.publish(light1CommTopic.c_str(), "O");
+    }
+    else if (fallingMillis - risingMillis > fanOnMillis) {
+      Serial.println("Fan On via button");
+
+      fan0state = true;
+      digitalWrite(fan0, LOW);
+      client.publish(fan0StateTopic.c_str(), "O");
+
+      //EDIT
+      client.publish(fan1CommTopic.c_str(), "O");
+    }
+  }
+
+
+  //  if (!prevButState && curButState) {
+  //    Serial.println("Rising Edge detected");
+  //    Serial.println("All devices turned off");
+  //    delay(250);
+  //    fan0state = false;
+  //    light0state = false;
+  //    digitalWrite(light0, HIGH);
+  //    digitalWrite(fan0, HIGH);
+  //    client.publish(light0StateTopic.c_str(), "F");
+  //    client.publish(fan0StateTopic.c_str(), "F");
+  //
+  //    //EDIT
+  //    client.publish(light1CommTopic.c_str(), "F");
+  //    client.publish(light2CommTopic.c_str(), "F");
+  //    client.publish(fan1CommTopic.c_str(), "F");
+  //  }
 
   while (swSer.available() > 0) {
     serialInput += (char) swSer.read();
