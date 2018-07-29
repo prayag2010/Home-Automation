@@ -1,0 +1,45 @@
+- alias: HTTP to MQTT keep alive
+  trigger:
+    platform: time
+    minutes: '/10'
+    seconds: 00
+  condition:
+    condition: time
+    after: '10:30:00'
+    before: '4:00:00'
+  action:
+    service: rest_command.http_to_mqtt_keep_alive
+
+- alias: "Automatic AC off"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.ac
+      to: 'on'
+  action:
+    - service: script.turn_on
+      entity_id: script.ac_timer
+
+- alias: "AC: reset timer"
+  trigger:
+    - platform: state
+      entity_id: input_boolean.ac
+      to: 'off'
+  action:
+    - service: script.turn_off
+      entity_id: script.ac_timer
+      
+- alias: "Send corresponding ac option (in numbers)"
+  trigger:
+    - platform: state
+      entity_id: input_select.ac_ir_command
+  action:
+    service: mqtt.publish
+    data_template:
+      topic: "ac/command"
+      payload: >-
+        {%  if states.input_select.ac_ir_command.state == "Turbo, Full Swing" %}0
+        {%  elif states.input_select.ac_ir_command.state == "Turbo, Front Swing" %}1
+        {%  elif states.input_select.ac_ir_command.state == "Fan 2, Front Swing" %}2
+        {%  elif states.input_select.ac_ir_command.state == "Fan 3, Full Swing" %}3
+        {%  elif states.input_select.ac_ir_command.state == "Fan 2, Full Swing" %}4
+        {%  endif %}

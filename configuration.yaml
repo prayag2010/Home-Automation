@@ -1,0 +1,277 @@
+homeassistant:
+  # Name of the location where Home Assistant is running
+  name: Home
+  # Location required to calculate the time the sun rises and sets
+  latitude: 19.234102
+  longitude: 72.863802
+  # Impacts weather/sunrise data (altitude above sea level in meters)
+  elevation: 7
+  # metric for Metric, imperial for Imperial
+  unit_system: metric
+  # Pick yours from here: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  time_zone: Asia/Kolkata
+  # Customization file
+  customize:
+    script.ac_timer:
+      hidden: true
+    input_number.ac_run_time_hour:
+      icon: mdi:clock-outline
+    input_number.ac_run_time_min:
+      icon: mdi:clock-outline
+    input_boolean.ac:
+      icon: mdi:alarm-check
+    automation.ac_reset_timer:
+      hidden: true
+    automation.automatic_ac_off:
+      hidden: true
+    automation.send_corresponding_ac_option_in_numbers:
+      hidden: true
+    automation.http_to_mqtt_keep_alive:
+      icon: mdi:cloud
+    sensor.weather_cloudiness:
+      icon: mdi:weather-cloudy
+      friendly_name: Cloudiness in Mumbai
+      hidden: true
+    sensor.weather_temperature:
+      friendly_name: Temperature in Mumbai
+      hidden: true
+    sun.sun:
+      hidden: true
+    weather.yweather:
+      friendly_name: Weather
+    script.ac_off:
+      icon: mdi:air-conditioner
+    script.ac_send_selected_command:
+      icon: mdi:air-conditioner
+
+
+# Show links to resources in log and frontend
+# introduction:
+
+# Enables the frontend
+frontend:
+
+# Enables configuration UI
+config:
+
+
+http:
+  # Secrets are defined in the file secrets.yaml
+  # api_password: !secret http_password
+  # Uncomment this if you are using SSL/TLS, running in Docker container, etc.
+  # base_url: example.duckdns.org:8123
+
+# Checks for available updates
+# Note: This component will send some information about your system to
+# the developers to assist with development of Home Assistant.
+# For more information, please see:
+# https://home-assistant.io/blog/2016/10/25/explaining-the-updater/
+updater:
+  # Optional, allows Home Assistant developers to focus on popular components.
+  # include_used_components: true
+
+# Discover some devices automatically
+# discovery:
+
+# Allows you to issue voice commands from the frontend in enabled browsers
+conversation:
+
+# Enables support for tracking state changes over time
+# history:
+
+# View all events in a logbook
+# logbook:
+
+map:
+
+# Track the sun
+sun:
+
+# Weather prediction
+sensor:
+  - platform: yr
+    name: Weather
+    forecast: 24
+    monitored_conditions:
+      - temperature
+      - cloudiness
+
+
+# Text to speech
+tts:
+  - platform: google
+
+# Cloud
+cloud:
+  google_actions:
+    filter:
+      include_domains:
+          - light
+          - fan
+  alexa:
+    filter:
+      include_domains:
+          - light
+          - fan
+
+mqtt:
+  broker: localhost
+  port: 1883
+#  broker: m12.cloudmqtt.com
+#  port: 15267
+#  username: yfjefqfh
+#  password: DQ1Jsb2RgJEH
+
+rest_command:
+  http_to_mqtt_keep_alive:
+    url: https://testprayag.herokuapp.com/keep_alive/
+    method: get
+
+light:
+  - platform: mqtt
+    name: "Table Light"
+    state_topic: "lig/stae/0"
+    command_topic: "lig/comm/0"
+    qos: 0
+    payload_on: "O"
+    payload_off: "F"
+    optimistic: false
+  - platform: mqtt
+    name: "Bed Lights"
+    state_topic: "lig/stae/1"
+    command_topic: "lig/comm/1"
+    qos: 0
+    payload_on: "O"
+    payload_off: "F"
+    optimistic: false
+  - platform: mqtt
+    name: "Rope Lights"
+    state_topic: "lig/stae/2"
+    command_topic: "lig/comm/2"
+    qos: 0
+    payload_on: "O"
+    payload_off: "F"
+    optimistic: false
+
+fan:
+  - platform: mqtt
+    name: "Table Fan"
+    state_topic: "fan/stae/0"
+    command_topic: "fan/comm/0"
+    qos: 0
+    payload_on: "O"
+    payload_off: "F"
+    optimistic: false
+  - platform: mqtt
+    name: "Bed Fan"
+    state_topic: "fan/stae/1"
+    command_topic: "fan/comm/1"
+    qos: 0
+    payload_on: "O"
+    payload_off: "F"
+    optimistic: false
+
+group:
+  living_room:
+    name: Living Room
+    icon: mdi:sofa
+    entities:
+      - light.table_light
+      - fan.table_fan
+      - light.bed_lights
+      - light.rope_lights
+      - fan.bed_fan
+
+  air_con:
+    name: Living Room AC
+    icon: mdi:air-conditioner
+    entities:
+      - input_select.ac_ir_command
+      - script.ac_send_selected_command
+      - script.ac_off
+
+  ac_timer:
+    name: Room AC Off Timer
+    icon: mdi:clock-outline
+    entities:
+      - input_boolean.ac
+      - input_number.ac_run_time_hour
+      - input_number.ac_run_time_min
+
+
+
+script:
+  ac_timer:
+    alias: "AC Timer"
+    sequence:
+      - delay: '{{ states.input_number.ac_run_time_hour.state | int }}:{{ states.input_number.ac_run_time_min.state | int }}:00'
+      - service: input_boolean.turn_off
+        data:
+          entity_id: input_boolean.ac
+
+  ac_off:
+    alias: "Turn living room AC off"
+    sequence:
+      - service: mqtt.publish
+        data_template:
+          topic: "ac/command"
+          payload: "O"
+
+  ac_send_selected_command:
+    alias: "Send Selected Command"
+    sequence:
+      - service: mqtt.publish
+        data_template:
+          topic: "ac/command"
+          payload: >-
+            {%  if states.input_select.ac_ir_command.state == "Turbo, Full Swing" %}0
+            {%  elif states.input_select.ac_ir_command.state == "Turbo, Front Swing" %}1
+            {%  elif states.input_select.ac_ir_command.state == "Fan 2, Front Swing" %}2
+            {%  elif states.input_select.ac_ir_command.state == "Fan 3, Full Swing" %}3
+            {%  elif states.input_select.ac_ir_command.state == "Fan 2, Front Swing" %}4
+            {%  endif %}
+
+
+input_number:
+  ac_run_time_hour:
+    name: Hour
+    initial: 6
+    min: 0
+    max: 12
+    step: 1
+  ac_run_time_min:
+    name: Minute
+    initial: 0
+    min: 0
+    max: 59
+    step: 1
+
+input_boolean:
+  ac:
+    name: AC off Timer
+    initial: off
+    
+input_select:
+  ac_ir_command:
+    name: Send AC preset
+    options:
+      - "Turbo, Full Swing"
+      - "Turbo, Front Swing"
+      - "Fan 2, Front Swing"
+      - "Fan 3, Full Swing"
+      - "Fan 2, Full Swing"
+    icon: mdi:air-conditioner
+
+weather:
+  - platform: yweather
+
+homekit:
+  filter:
+    include_domains:
+        - light
+        - fan
+
+
+#group: !include groups.yaml
+automation: !include automations.yaml
+#script: !include scripts.yaml
