@@ -1,1 +1,1 @@
-Home assistnat configuration files
+Home assistant configuration files
