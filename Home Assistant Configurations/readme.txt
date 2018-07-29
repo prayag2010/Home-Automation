@@ -1,0 +1,1 @@
+Home assistnat configuration files
